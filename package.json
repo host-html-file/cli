@@ -1,6 +1,6 @@
 {
   "name": "host-html-file",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Install the Host HTML File skill for local AI coding agents.",
   "type": "module",
   "bin": {

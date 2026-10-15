@@ -37,8 +37,15 @@ function relativeAssetUrl(fromPath, targetPath, suffix) {
   return `${rewritten}${suffix}`;
 }
 
+function isNewUrlArgument(content, quoteIndex) {
+  return /(?:^|[^.\w$])new\s+URL\s*\(\s*$/.test(content.slice(Math.max(0, quoteIndex - 40), quoteIndex));
+}
+
 function rewriteRootRelativeAssetReferences(content, filePath, uploadedPaths) {
-  return content.replace(/(^|["'`(\s=:])\/(?!\/)([A-Za-z0-9._~!$&+,;=:@%/-]+(?:[?#][^"'`()\s<>]*)?)/g, (match, prefix, value) => {
+  const ext = posix.extname(filePath).toLowerCase();
+  const isScript = ext === ".js" || ext === ".mjs";
+
+  return content.replace(/(^|["'`(\s=:])\/(?!\/)([A-Za-z0-9._~!$&+,;=:@%/-]+(?:[?#][^"'`()\s<>]*)?)/g, (match, prefix, value, offset) => {
     const { path, suffix } = splitUrlPath(value);
     let decodedPath = path;
     try {
@@ -51,7 +58,9 @@ function rewriteRootRelativeAssetReferences(content, filePath, uploadedPaths) {
       return match;
     }
 
-    return `${prefix}${relativeAssetUrl(filePath, uploadedPaths.has(path) ? path : decodedPath, suffix)}`;
+    // Script strings are assigned to elements and resolve against the page, not the script file.
+    const fromPath = isScript && !isNewUrlArgument(content, offset) ? "index.html" : filePath;
+    return `${prefix}${relativeAssetUrl(fromPath, uploadedPaths.has(path) ? path : decodedPath, suffix)}`;
   });
 }
 
