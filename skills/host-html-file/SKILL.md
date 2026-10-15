@@ -3,7 +3,7 @@ name: host-html-file
 description: Publish AI-generated HTML prototypes to Host HTML File and return a shareable preview URL. Use when the user asks to publish, upload, share, preview, or deploy an HTML page through Host HTML File. Also handles custom subdomain publishing (e.g. "publish to demo.lanvo.app", "发布到 demo.lanvo.app", "deploy to myapp.lanvo.app").
 ---
 
-# Host HTML File
+# host-html-file
 
 Use this skill to publish static HTML projects to Host HTML File.
 
