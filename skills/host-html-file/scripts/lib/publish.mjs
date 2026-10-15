@@ -4,7 +4,7 @@ import { allowedExtensions, contentTypeFor, rewriteableExtensions } from "./util
 import { requestHeaders, readJsonResponse, skillVersion } from "./auth.mjs";
 import { validateAndFixLocalRefs } from "./asset-validator.mjs";
 
-const appUrl = (process.env.HTMLSHARE_BASE_URL || "https://www.htmlshare.page").replace(/\/$/, "");
+const appUrl = (process.env.HOST_HTML_FILE_BASE_URL || process.env.HTMLSHARE_BASE_URL || "https://hosthtmlfile.com").replace(/\/$/, "");
 
 function toObjectPath(root, filePath) {
   return relative(root, filePath).replaceAll("\\", "/");
@@ -118,7 +118,7 @@ export async function publishHtml(accessToken, absolutePath, replace) {
     }),
   });
 
-  const result = await readJsonResponse(response, "HTMLShare upload failed.");
+  const result = await readJsonResponse(response, "Host HTML File upload failed.");
   return { url: result.url, projectId: result.projectId, clientUpdate: result.clientUpdate ?? null };
 }
 
@@ -153,6 +153,6 @@ export async function publishFiles(accessToken, root, replace) {
     }),
   });
 
-  const result = await readJsonResponse(response, "HTMLShare upload failed.");
+  const result = await readJsonResponse(response, "Host HTML File upload failed.");
   return { url: result.url, projectId: result.projectId, clientUpdate: result.clientUpdate ?? null };
 }

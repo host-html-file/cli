@@ -1,14 +1,13 @@
 {
-  "name": "@htmlshare/cli",
-  "version": "1.3.0",
-  "description": "Install the HTMLShare Skill for local AI coding agents.",
+  "name": "host-html-file",
+  "version": "1.4.0",
+  "description": "Install the Host HTML File skill for local AI coding agents.",
   "type": "module",
   "bin": {
-    "htmlshare": "bin/htmlshare.mjs"
+    "host-html-file": "bin/host-html-file.mjs"
   },
   "files": [
     "bin",
-    "scripts",
     "skills",
     "README.md"
   ],
@@ -16,7 +15,7 @@
     "pack:check": "npm pack --dry-run"
   },
   "keywords": [
-    "htmlshare",
+    "host-html-file",
     "skill",
     "codex",
     "claude",

@@ -9,14 +9,20 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const skillSource = join(packageRoot, "skills", "htmlshare");
-const publisherScript = join(skillSource, "scripts", "publish-htmlshare.mjs");
-const appUrl = (process.env.HTMLSHARE_BASE_URL || "https://htmlshare.page").replace(/\/$/, "");
+const skillSource = join(packageRoot, "skills", "host-html-file");
+const publisherScript = join(skillSource, "scripts", "publish.mjs");
+const appUrl = (process.env.HOST_HTML_FILE_BASE_URL || process.env.HTMLSHARE_BASE_URL || "https://hosthtmlfile.com").replace(/\/$/, "");
 const cliCallbackPort = 38765;
-const configPath = join(homedir(), ".htmlshare", "config.json");
+const configPath = join(homedir(), ".host-html-file", "config.json");
 const supportedAgents = new Set(["codex", "claude", "cursor", "all"]);
 
 const agentTargets = {
+  codex: join(homedir(), ".codex", "skills", "host-html-file"),
+  claude: join(homedir(), ".claude", "skills", "host-html-file"),
+  cursor: join(homedir(), ".cursor", "skills", "host-html-file"),
+};
+
+const legacyAgentTargets = {
   codex: join(homedir(), ".codex", "skills", "htmlshare"),
   claude: join(homedir(), ".claude", "skills", "htmlshare"),
   cursor: join(homedir(), ".cursor", "skills", "htmlshare"),
@@ -24,20 +30,20 @@ const agentTargets = {
 
 function usage() {
   return `Usage:
-  htmlshare login
-  htmlshare publish <path/to/index.html|project-dir> [--domain subdomain.lanvo.app]
-  htmlshare update <path/to/index.html|project-dir> --replace <preview-url|slug|project-id> [--domain subdomain.lanvo.app]
-  htmlshare install [--agent codex|claude|cursor|all] [--dry-run]
+  host-html-file login
+  host-html-file publish <path/to/index.html|project-dir> [--domain subdomain.lanvo.app]
+  host-html-file update <path/to/index.html|project-dir> --replace <preview-url|slug|project-id> [--domain subdomain.lanvo.app]
+  host-html-file install [--agent codex|claude|cursor|all] [--dry-run]
 
 Examples:
-  npx @htmlshare/cli login
-  npx @htmlshare/cli publish ./dist
-  npx @htmlshare/cli publish ./dist --domain myapp.lanvo.app
-  npx @htmlshare/cli update ./dist --replace https://preview.htmlshare.dev/abc123/index.html
-  npx @htmlshare/cli update ./dist --domain myapp.lanvo.app
-  npx @htmlshare/cli install
-  npx @htmlshare/cli install --agent codex
-  npx @htmlshare/cli install --agent all`;
+  npx host-html-file login
+  npx host-html-file publish ./dist
+  npx host-html-file publish ./dist --domain myapp.lanvo.app
+  npx host-html-file update ./dist --replace https://preview.hosthtmlfile.com/abc123/index.html
+  npx host-html-file update ./dist --domain myapp.lanvo.app
+  npx host-html-file install
+  npx host-html-file install --agent codex
+  npx host-html-file install --agent all`;
 }
 
 function readOption(args, name, fallback) {
@@ -59,13 +65,16 @@ async function pathExists(path) {
   }
 }
 
-async function installSkill(target, dryRun) {
+async function installSkill(agent, dryRun) {
+  const target = agentTargets[agent];
+  const legacyTarget = legacyAgentTargets[agent];
   if (!(await pathExists(skillSource))) {
-    throw new Error(`Missing bundled Skill files at ${skillSource}. Run npm pack from the CLI package before publishing.`);
+    throw new Error(`Missing bundled skill files at ${skillSource}. Run npm pack from the CLI package before publishing.`);
   }
 
   if (dryRun) {
-    console.log(`Would install HTMLShare Skill to ${target}`);
+    console.log(`Would install Host HTML File skill to ${target}`);
+    if (legacyTarget !== target) console.log(`Would remove the previous skill at ${legacyTarget}`);
     return;
   }
 
@@ -73,7 +82,8 @@ async function installSkill(target, dryRun) {
   await rm(target, { recursive: true, force: true });
   await cp(skillSource, target, { recursive: true });
   await cp(join(packageRoot, "package.json"), join(target, "package.json"));
-  console.log(`Installed HTMLShare Skill to ${target}`);
+  if (legacyTarget !== target) await rm(legacyTarget, { recursive: true, force: true });
+  console.log(`Installed Host HTML File skill to ${target}`);
 }
 
 function openBrowser(url) {
@@ -92,7 +102,7 @@ function normalizeExpiresAt(value) {
 }
 
 async function saveConfig(config) {
-  await mkdir(join(homedir(), ".htmlshare"), { recursive: true });
+  await mkdir(dirname(configPath), { recursive: true });
   await writeFile(configPath, JSON.stringify(config, null, 2));
   await chmod(configPath, 0o600).catch(() => undefined);
 }
@@ -130,7 +140,7 @@ function waitForCliLogin() {
 
     server.on("error", (error) => {
       if (error && typeof error === "object" && "code" in error && error.code === "EADDRINUSE") {
-        reject(new Error(`Port ${cliCallbackPort} is already in use. Close the other HTMLShare login process and try again.`));
+        reject(new Error(`Port ${cliCallbackPort} is already in use. Close the other Host HTML File login process and try again.`));
         return;
       }
 
@@ -139,7 +149,7 @@ function waitForCliLogin() {
 
     server.listen(cliCallbackPort, "127.0.0.1", () => {
       const loginUrl = new URL("/cli/login", appUrl);
-      console.log(`Open this login link to authorize HTMLShare:\n${loginUrl.toString()}`);
+      console.log(`Open this login link to authorize Host HTML File:\n${loginUrl.toString()}`);
       console.log(`Keep this process running until login redirects back to 127.0.0.1:${cliCallbackPort}.`);
       openBrowser(loginUrl.toString());
     });
@@ -149,12 +159,12 @@ function waitForCliLogin() {
 async function login() {
   const session = await waitForCliLogin();
   await saveConfig(session);
-  console.log(`HTMLShare login saved to ${configPath}`);
+  console.log(`Host HTML File login saved to ${configPath}`);
 }
 
 function runPublisher(args, command = "publish") {
   if (!args[0]) {
-    throw new Error(`${command} requires a path.\n\nUsage: htmlshare ${command} <path/to/index.html|project-dir>${command === "update" ? " --replace <preview-url|slug|project-id>" : ""}`);
+    throw new Error(`${command} requires a path.\n\nUsage: host-html-file ${command} <path/to/index.html|project-dir>${command === "update" ? " --replace <preview-url|slug|project-id>" : ""}`);
   }
 
   if (command === "update" && !args.includes("--replace") && !args.includes("--project") && !args.includes("--domain")) {
@@ -211,11 +221,11 @@ async function main() {
 
   const agents = agent === "all" ? ["codex", "claude", "cursor"] : [agent];
   for (const currentAgent of agents) {
-    await installSkill(agentTargets[currentAgent], dryRun);
+    await installSkill(currentAgent, dryRun);
   }
 
   if (!dryRun) {
-    console.log("\nNext: restart your AI tool, then ask it to use the HTMLShare Skill to publish an HTML file or project folder.");
+    console.log("\nNext: restart your AI tool, then ask it to use the host-html-file skill to publish an HTML file or project folder.");
   }
 }
 

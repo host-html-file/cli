@@ -5,7 +5,7 @@ import { basename, dirname, resolve } from "node:path";
 import { getAccessToken, authorize, clearConfig, isAuthorizationError, readJsonResponse, requestHeaders } from "./lib/auth.mjs";
 import { publishHtml, publishFiles } from "./lib/publish.mjs";
 
-const appUrl = (process.env.HTMLSHARE_BASE_URL || "https://www.htmlshare.page").replace(/\/$/, "");
+const appUrl = (process.env.HOST_HTML_FILE_BASE_URL || process.env.HTMLSHARE_BASE_URL || "https://hosthtmlfile.com").replace(/\/$/, "");
 const lanvoBaseDomain = (process.env.LANVO_BASE_DOMAIN || "lanvo.app").replace(/^\./, "").toLowerCase();
 
 const args = process.argv.slice(2);
@@ -14,7 +14,7 @@ const domainTarget = readOption(args, "--domain");
 const htmlPath = args.find((arg) => !arg.startsWith("-") && arg !== replaceTarget && arg !== domainTarget);
 
 if (!htmlPath) {
-  console.error("Usage: node scripts/publish-htmlshare.mjs path/to/index.html|project-dir [--replace preview-url|slug|project-id]");
+  console.error("Usage: node scripts/publish.mjs path/to/index.html|project-dir [--replace preview-url|slug|project-id]");
   process.exit(1);
 }
 
@@ -67,7 +67,7 @@ async function publish(accessToken, replace) {
   }
 
   if (absolutePath.toLowerCase().endsWith(".zip")) {
-    throw new Error("ZIP files are not supported by the Skill publisher. Pass the extracted project directory instead.");
+    throw new Error("ZIP files are not supported by the skill publisher. Pass the extracted project directory instead.");
   }
 
   if (basename(absolutePath).toLowerCase() === "index.html") {
@@ -96,7 +96,7 @@ async function run(accessToken) {
     try {
       await bindDomain(accessToken, projectId, label);
     } catch (bindError) {
-      console.log(`${effectiveReplace ? "Updated" : "Published"} to HTMLShare:\n${url}`);
+      console.log(`${effectiveReplace ? "Updated" : "Published"} to Host HTML File:\n${url}`);
       throw bindError;
     }
   }
@@ -113,7 +113,7 @@ try {
   } catch (error) {
     if (!isAuthorizationError(error)) throw error;
 
-    console.error("HTMLShare authorization expired or was revoked. Opening login to reconnect...");
+    console.error("Host HTML File authorization expired or was revoked. Opening login to reconnect...");
     await clearConfig();
     token = await authorize();
     result = await run(token);
@@ -122,13 +122,13 @@ try {
   const { url, label, wasUpdate, clientUpdate } = result;
   const verb = wasUpdate ? "Updated" : "Published";
   if (label) {
-    console.log(`${verb} to HTMLShare:\n${url}\nSubdomain: https://${label}.${lanvoBaseDomain}`);
+    console.log(`${verb} to Host HTML File:\n${url}\nSubdomain: https://${label}.${lanvoBaseDomain}`);
   } else {
-    console.log(`${verb} to HTMLShare:\n${url}`);
+    console.log(`${verb} to Host HTML File:\n${url}`);
   }
 
   if (clientUpdate) {
-    console.log(`\nA newer HTMLShare Skill is available (${clientUpdate.version}).`);
+    console.log(`\nA newer host-html-file skill is available (${clientUpdate.version}).`);
     console.log(clientUpdate.notes);
     console.log(`Install it with:\n  ${clientUpdate.installCommand}`);
   }

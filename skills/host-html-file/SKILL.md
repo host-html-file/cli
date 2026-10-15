@@ -1,11 +1,11 @@
 ---
-name: htmlshare
-description: Publish AI-generated HTML prototypes to HTMLShare and return a shareable preview URL. Use when the user asks to publish, upload, share, preview, or deploy an HTML page through HTMLShare. Also handles custom subdomain publishing (e.g. "publish to demo.lanvo.app", "发布到 demo.lanvo.app", "deploy to myapp.lanvo.app").
+name: host-html-file
+description: Publish AI-generated HTML prototypes to Host HTML File and return a shareable preview URL. Use when the user asks to publish, upload, share, preview, or deploy an HTML page through Host HTML File. Also handles custom subdomain publishing (e.g. "publish to demo.lanvo.app", "发布到 demo.lanvo.app", "deploy to myapp.lanvo.app").
 ---
 
-# HTMLShare
+# Host HTML File
 
-Use this skill to publish static HTML projects to HTMLShare.
+Use this skill to publish static HTML projects to Host HTML File.
 
 ## Workflow
 
@@ -17,25 +17,25 @@ Use this skill to publish static HTML projects to HTMLShare.
 3. Run the bundled publisher:
 
 ```bash
-node scripts/publish-htmlshare.mjs path/to/index.html
+node scripts/publish.mjs path/to/index.html
 ```
 
 You can also pass a project directory:
 
 ```bash
-node scripts/publish-htmlshare.mjs path/to/project-dir
+node scripts/publish.mjs path/to/project-dir
 ```
 
 To update an existing preview link in place, pass the current preview URL, slug, or project ID:
 
 ```bash
-node scripts/publish-htmlshare.mjs path/to/project-dir --replace https://preview.htmlshare.dev/abc123/index.html
+node scripts/publish.mjs path/to/project-dir --replace https://preview.hosthtmlfile.com/abc123/index.html
 ```
 
 To publish to a custom Lanvo subdomain (requires a paid plan or free trial):
 
 ```bash
-node scripts/publish-htmlshare.mjs path/to/project-dir --domain myapp.lanvo.app
+node scripts/publish.mjs path/to/project-dir --domain myapp.lanvo.app
 ```
 
 If the subdomain is already linked to a project you own, this automatically updates that project. If not, it publishes a new project and binds the subdomain. You can combine `--replace` and `--domain` to explicitly target a project and bind a subdomain in one command.
@@ -46,49 +46,49 @@ If the subdomain is already linked to a project you own, this automatically upda
 
 ## Notes
 
-- Default app URL: `https://htmlshare.page`.
-- Override with `HTMLSHARE_BASE_URL` for staging or local development.
+- Default app URL for login and publish: `https://hosthtmlfile.com`.
+- Override with `HOST_HTML_FILE_BASE_URL`. `HTMLSHARE_BASE_URL` is still read when the new variable is unset.
 - Passing `index.html` uploads allowed static files from the same directory, including CSS, JS, images, fonts, JSON, and text files.
 - Passing another `.html` file uploads only that file.
 - Passing `--replace` keeps the existing preview URL and swaps in a new deployment for that project.
-- The CLI session is stored at `~/.htmlshare/config.json`.
+- The CLI session is stored at `~/.host-html-file/config.json`. A session already stored at `~/.htmlshare/config.json` is still read.
 - If authorization fails, the publisher clears the invalid token, opens the login page, and retries once after authorization.
-- Free accounts can publish up to 10 projects total. Deleted projects still count toward this lifetime publish limit, so do not tell users to delete old projects to free a slot. If the publisher returns `project_limit_reached`, tell the user to upgrade at `https://www.htmlshare.page/pricing` or use another account.
+- Free accounts can publish up to 10 projects total. Deleted projects still count toward this lifetime publish limit, so do not tell users to delete old projects to free a slot. If the publisher returns `project_limit_reached`, tell the user to upgrade at `https://hosthtmlfile.com/pricing` or use another account.
 - `ERR_CONNECTION_REFUSED` on `127.0.0.1:38765/auth/callback` means the publisher process was stopped before login returned. Run the same publish command again and keep it alive while logging in.
 - When using `--domain`, some labels are reserved system subdomains (e.g. `test`, `dev`, `staging`, `api`) and will be rejected with `label_reserved`. Choose a unique label specific to your project.
 - `--domain` errors and their meanings:
   - `label_reserved` (400): the label is a reserved system subdomain.
   - `label_unavailable` (409): the subdomain is taken by another user. Choose a different label.
-  - `domain_plan_required` (403): subdomain binding requires upgrading at `https://www.htmlshare.page/pricing` or using the free trial.
+  - `domain_plan_required` (403): subdomain binding requires upgrading at `https://hosthtmlfile.com/pricing` or using the free trial.
   - `domain_limit_reached` (403): you have reached the subdomain limit for your plan.
 - If a `--domain` bind fails after a successful publish, the published URL is printed before the error so the content is not lost.
 
 ## JSON state for prototypes
 
-HTMLShare is still static hosting. Signed-in projects can persist one JSON object/array (max 64KB) so a demo can survive a phone switch. This is not a database. If the user wants remote demo state, put the `fetch` calls below in the published HTML; do not add a custom backend.
+Host HTML File is still static hosting. Signed-in projects can persist one JSON object/array (max 64KB) so a demo can survive a phone switch. This is not a database. If the user wants remote demo state, put the `fetch` calls below in the published HTML; do not add a custom backend.
 
 **Per-project blob** (Free/Pro/Max, not Guest):
 
 ```js
-const state = await fetch("/__htmlshare/state").then((response) => response.json());
-await fetch("/__htmlshare/state", {
+const state = await fetch("/__hosthtmlfile/state").then((response) => response.json());
+await fetch("/__hosthtmlfile/state", {
   method: "PUT",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ ...state, step: 2 }),
 });
 ```
 
-Use a leading `/`. Empty state is `{}`. Last write wins. Re-publishing HTML keeps the blob; deleting or expiring the project deletes it. Custom Lanvo domains can use the same per-project blob. A page must not read or write another project's `/__htmlshare/state`.
+Use a leading `/`. Empty state is `{}`. Last write wins. Re-publishing HTML keeps the blob; deleting or expiring the project deletes it. Custom Lanvo domains can use the same per-project blob. A page must not read or write another project's `/__hosthtmlfile/state`.
 
-**User blob** (Pro/Max only, only on `preview.htmlshare.dev`):
+**User blob** (Pro/Max only, only on `preview.hosthtmlfile.com`):
 
 ```js
-const token = document.querySelector('meta[name="htmlshare-user-state"]')?.content;
+const token = document.querySelector('meta[name="hosthtmlfile-user-state"]')?.content;
 if (!token) throw new Error("User state is not available on this preview.");
-const shared = await fetch("/__htmlshare/user-state", {
+const shared = await fetch("/__hosthtmlfile/user-state", {
   headers: { Authorization: `Bearer ${token}` },
 }).then((response) => response.json());
-await fetch("/__htmlshare/user-state", {
+await fetch("/__hosthtmlfile/user-state", {
   method: "PUT",
   headers: {
     "Content-Type": "application/json",

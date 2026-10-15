@@ -2,13 +2,14 @@ import { createServer } from "node:http";
 import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { HtmlShareApiError } from "./utils.mjs";
+import { HostHtmlFileApiError } from "./utils.mjs";
 
-const appUrl = (process.env.HTMLSHARE_BASE_URL || "https://www.htmlshare.page").replace(/\/$/, "");
-const configPath = join(homedir(), ".htmlshare", "config.json");
+const appUrl = (process.env.HOST_HTML_FILE_BASE_URL || process.env.HTMLSHARE_BASE_URL || "https://hosthtmlfile.com").replace(/\/$/, "");
+const configPath = join(homedir(), ".host-html-file", "config.json");
+const legacyConfigPath = join(homedir(), ".htmlshare", "config.json");
 const cliCallbackPort = 38765;
 
 async function readPackageVersion(startDir) {
@@ -38,22 +39,27 @@ export function requestHeaders(accessToken) {
   return {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
-    ...(skillVersion ? { "X-HTMLShare-Skill-Version": skillVersion } : {}),
+    ...(skillVersion
+      ? {
+          "X-Host-Html-File-Skill-Version": skillVersion,
+          "X-HTMLShare-Skill-Version": skillVersion,
+        }
+      : {}),
   };
 }
 
 export async function readJsonResponse(response, fallbackMessage) {
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new HtmlShareApiError(result.message || result.error || fallbackMessage, response.status, result.error);
+    throw new HostHtmlFileApiError(result.message || result.error || fallbackMessage, response.status, result.error);
   }
   return result;
 }
 
-export async function loadConfig() {
-  if (!existsSync(configPath)) return null;
+async function readConfigFile(path) {
+  if (!existsSync(path)) return null;
   try {
-    const stored = JSON.parse(await readFile(configPath, "utf8"));
+    const stored = JSON.parse(await readFile(path, "utf8"));
     if (!stored.accessToken) return null;
     return stored;
   } catch {
@@ -61,15 +67,19 @@ export async function loadConfig() {
   }
 }
 
+export async function loadConfig() {
+  return (await readConfigFile(configPath)) ?? (await readConfigFile(legacyConfigPath));
+}
+
 export async function saveConfig(config) {
-  await mkdir(join(homedir(), ".htmlshare"), { recursive: true });
+  await mkdir(dirname(configPath), { recursive: true });
   await writeFile(configPath, JSON.stringify(config, null, 2));
   await chmod(configPath, 0o600).catch(() => undefined);
 }
 
 export async function clearConfig() {
-  if (!existsSync(configPath)) return;
   await unlink(configPath).catch(() => undefined);
+  await unlink(legacyConfigPath).catch(() => undefined);
 }
 
 function normalizeExpiresAt(value) {
@@ -115,7 +125,7 @@ function waitForWebAccessToken() {
 
     server.on("error", (error) => {
       if (error && typeof error === "object" && "code" in error && error.code === "EADDRINUSE") {
-        reject(new Error(`Port ${cliCallbackPort} is already in use. Close the other HTMLShare login process and try again.`));
+        reject(new Error(`Port ${cliCallbackPort} is already in use. Close the other Host HTML File login process and try again.`));
         return;
       }
       reject(error);
@@ -123,7 +133,7 @@ function waitForWebAccessToken() {
 
     server.listen(cliCallbackPort, "127.0.0.1", () => {
       const loginUrl = new URL("/cli/login", appUrl);
-      console.log(`Open this login link to authorize HTMLShare:\n${loginUrl.toString()}`);
+      console.log(`Open this login link to authorize Host HTML File:\n${loginUrl.toString()}`);
       console.log(`Keep this process running until login redirects back to 127.0.0.1:${cliCallbackPort}.`);
       openBrowser(loginUrl.toString());
     });
@@ -143,7 +153,7 @@ export async function refreshConfig(config) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken: config.refreshToken }),
   });
-  const result = await readJsonResponse(response, "HTMLShare login refresh failed.");
+  const result = await readJsonResponse(response, "Host HTML File login refresh failed.");
   const refreshed = {
     accessToken: result.accessToken,
     refreshToken: result.refreshToken,
@@ -172,7 +182,7 @@ export async function getAccessToken() {
 
 export function isAuthorizationError(error) {
   return (
-    error instanceof HtmlShareApiError &&
+    error instanceof HostHtmlFileApiError &&
     (error.status === 401 || error.code === "unauthorized" || error.code === "authorization_expired")
   );
 }

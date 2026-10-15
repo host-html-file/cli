@@ -27,10 +27,10 @@ export function contentTypeFor(path) {
   return types[ext] || "application/octet-stream";
 }
 
-export class HtmlShareApiError extends Error {
+export class HostHtmlFileApiError extends Error {
   constructor(message, status, code) {
     super(message);
-    this.name = "HtmlShareApiError";
+    this.name = "HostHtmlFileApiError";
     this.status = status;
     this.code = code;
   }
